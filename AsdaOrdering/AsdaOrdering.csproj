@@ -11,4 +11,10 @@
     <PackageReference Include="OpenAI" Version="1.7.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="openai.apikey">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
