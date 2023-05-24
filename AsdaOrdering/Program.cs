@@ -1,8 +1,38 @@
-﻿using OpenAI_API.Chat;
+﻿using AsdaOrdering;
+using OpenAI_API.Chat;
 using OpenAI_API.Models;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+
+Console.WriteLine("Searching ...");
+string query = "strawberries";
+Dictionary<string, List<Product>> prices = new();
+foreach (Supermarket supermarket in Scraper.supermarkets)
+{
+    Console.WriteLine($"Searching {supermarket.searchFormatString} ...");
+    List<Product> products = await Scraper.Search(query, supermarket);
+    Console.WriteLine($"Found {products.Count} products.");
+    if (products.Count == 0)
+        continue;
+    Console.WriteLine("Found products:");
+    foreach (Product product in products)
+        Console.WriteLine(product);
+    prices.Add(supermarket.searchFormatString, products);
+}
+File.WriteAllText("prices.json", JsonSerializer.Serialize(prices, new JsonSerializerOptions { WriteIndented = true }));
+decimal amountWanted = 0.2m;
+foreach ((string supermarket, List<Product> product) in prices)
+{
+    var productsWithAmountsPerKg = product.Select(p => (p, p.GetKgs())).Where(p => p.Item2.HasValue).Select(p => (p.p, kgs: p.Item2!.Value));
+    var min = productsWithAmountsPerKg.MinBy(p => p.kgs);
+    Console.WriteLine($"{supermarket}: \n" +
+        $"- Cheapest per kg: {min.p.name} {min.kgs}/kg");
+    var pricesForAmountWanted = productsWithAmountsPerKg.Select(p => (p.p, numberNeeded: Math.Ceiling(amountWanted / p.kgs)));
+    var minForAmountWanted = pricesForAmountWanted.MinBy(p => p.numberNeeded * p.p.price);
+    Console.WriteLine($"- Cheapest for amount: {minForAmountWanted.numberNeeded} of {minForAmountWanted.p.name} for {minForAmountWanted.numberNeeded * minForAmountWanted.p.price}");
+}
+return;
 
 Console.WriteLine("Skip asking for recipes. Y/N?");
 bool skipRecipes = Console.ReadLine()!.ToLower() == "y";
@@ -160,3 +190,13 @@ public static class ConsoleExtra
 //        break;
 //    chat.AppendUserInput(userInput);
 //}
+
+public static class Extensions
+{
+    public static decimal? GetKgs(this Product product) => product switch
+    {
+        { quantityType: "g" } => product.quantity / 1000,
+        { quantityType: "kg" } => product.quantity,
+        _ => null
+    };
+}
