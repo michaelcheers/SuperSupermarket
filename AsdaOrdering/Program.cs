@@ -42,6 +42,10 @@ else
     File.WriteAllText("orderableIngredients.txt", orderableIngredients);
 }
 List<string> urls = new();
+Console.WriteLine($"Choose a supermarket: {string.Join(", ", Supermarket.All.Keys.OrderBy(a => a))}");
+string supermarket = Console.ReadLine()!;
+if (!Supermarket.All.ContainsKey(supermarket))
+    throw new Exception("Invalid supermarket");
 foreach (string line in orderableIngredients.Split('\n'))
 {
     string l = line.StartsWith("- ") ? line[2..] : line;
@@ -51,7 +55,7 @@ foreach (string line in orderableIngredients.Split('\n'))
     Console.WriteLine($"Do you have {l}? Y/N");
     if (Console.ReadLine()!.ToLower() == "n")
         // Example Url: https://groceries.asda.com/search/green%20lentils/products?sort=price+asc
-        urls.Add($"https://groceries.asda.com/search/{l2.Replace(" ", "%20")}/products?sort=price+asc");
+        urls.Add(Supermarket.GetUrl(supermarket, l2));
 }
 string serialized = JsonSerializer.Serialize(urls, new JsonSerializerOptions { WriteIndented = true });
 File.WriteAllText("urls.json", serialized);
@@ -102,6 +106,38 @@ public static class ConsoleExtra
         }
         return stringBuilder.ToString();
     }
+}
+
+public record Supermarket(string searchFormatString, string spaceCharacter)
+{
+    public static string GetUrl (string supermarketName, string product) =>
+        GetUrl(All[supermarketName], product);
+
+    private static string GetUrl (Supermarket supermarket, string product) =>
+        supermarket.searchFormatString.Replace("{0}", product.Replace(" ", supermarket.spaceCharacter));
+
+    public static readonly Dictionary<string, Supermarket> All = new()
+    {
+        // https://groceries.aldi.co.uk/en-GB/Search?keywords=green+lentils&sortBy=DisplayPrice&sortDirection=asc
+        ["Aldi"] = new Supermarket("https://groceries.aldi.co.uk/en-GB/Search?keywords={0}&sortBy=DisplayPrice&sortDirection=asc", "+"),
+        // https://groceries.asda.com/search/green%20lentils/products?sort=price+asc
+        ["Asda"] = new Supermarket("https://groceries.asda.com/search/{0}/products?sort=price+asc", "%20"),
+        // https://www.ocado.com/search?entry=green%20lentils&sort=PRICE_PER_ASC
+        ["Ocado"] = new Supermarket("https://www.ocado.com/search?entry={0}&sort=PRICE_PER_ASC", "%20"),
+        // https://www.sainsburys.co.uk/gol-ui/SearchResults/green%20lentils/category:/sort:price
+        ["Sainsburys"] = new Supermarket("https://www.sainsburys.co.uk/gol-ui/SearchResults/{0}/category:/sort:price", "%20"),
+        // https://www.tesco.com/groceries/en-GB/search?query=green%20lentils&sortBy=price-ascending
+        ["Tesco"] = new Supermarket("https://www.tesco.com/groceries/en-GB/search?query={0}&sortBy=price-ascending", "%20"),
+        // https://www.waitrose.com/ecom/shop/search?searchTerm=strawberries&sortBy=PRICE_LOW_2_HIGH
+        ["Waitrose"] = new Supermarket("https://www.waitrose.com/ecom/shop/search?searchTerm={0}&sortBy=PRICE_LOW_2_HIGH", "%20"),
+        // https://shop.coop.co.uk/search?term=green%20lentils
+        ["Coop"] = new Supermarket("https://shop.coop.co.uk/search?term={0}", "%20"),
+        // https://groceries.store.morrisons.com/search?q=red%20lentils&sortBy=pricePerAscending
+        //["Morrisons"] = new Supermarket("https://groceries.morrisons.com/search?entry={0}&sort=PRICE_ASC", "%20"),
+        ["Morrisons"] = new Supermarket("https://groceries.store.morrisons.com/search?q={0}&sortBy=pricePerAscending", "%20"),
+        // https://www.iceland.co.uk/search?q=red%20lentils&srule=price-low-to-high
+        ["Iceland"] = new Supermarket("https://www.iceland.co.uk/search?q={0}&srule=price-low-to-high", "%20")
+    };
 }
 
 //const string systemMessage = "You are AsdaGPT." +
